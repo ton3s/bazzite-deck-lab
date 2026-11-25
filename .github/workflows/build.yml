@@ -5,7 +5,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: '05 10 * * *'  # 10:05am UTC everyday
+    - cron: '05 10 * * 1'  # weekly (Mon 10:05 UTC) to pick up Docker CE updates; upstream changes are caught by check-upstream.yml
   push:
     branches:
       - main

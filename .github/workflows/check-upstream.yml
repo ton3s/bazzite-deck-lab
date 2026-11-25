@@ -1,0 +1,56 @@
+---
+name: Check upstream base image
+# Rebuilds this image whenever ghcr.io/ublue-os/bazzite-deck:stable changes.
+# Every build records the upstream digest it used in the
+# org.ton3s.base-digest label; if upstream no longer matches, trigger build.yml.
+on:
+  schedule:
+    - cron: '17 */3 * * *'  # every 3 hours
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  check:
+    name: Compare upstream digest
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Compare digests
+        id: compare
+        run: |
+          set -euo pipefail
+          source image-template.env
+          OURS_REF="ghcr.io/${REPO_ORGANIZATION,,}/${IMAGE_NAME,,}:${DEFAULT_TAG}"
+
+          upstream=$(skopeo inspect --retry-times 3 --no-tags "docker://${BASE_IMAGE}" | jq -r .Digest)
+          ours=$(skopeo inspect --retry-times 3 --no-tags "docker://${OURS_REF}" 2>/dev/null \
+                   | jq -r '.Labels["org.ton3s.base-digest"] // empty' || true)
+
+          echo "upstream ${BASE_IMAGE}: ${upstream}"
+          echo "built from:            ${ours:-<none>}"
+
+          if [[ -n "${upstream}" && "${upstream}" != "${ours}" ]]; then
+            echo "rebuild=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "rebuild=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Trigger build
+        if: steps.compare.outputs.rebuild == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          active=$(gh run list --repo "${GITHUB_REPOSITORY}" --workflow build.yml --branch main \
+                     --json status --jq '[.[] | select(.status != "completed")] | length')
+          if [[ "${active}" -gt 0 ]]; then
+            echo "A build is already queued or running; not triggering another."
+            exit 0
+          fi
+          gh workflow run build.yml --repo "${GITHUB_REPOSITORY}" --ref main
+          echo "Triggered build.yml"

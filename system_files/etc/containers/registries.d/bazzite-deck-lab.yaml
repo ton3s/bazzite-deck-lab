@@ -1,0 +1,3 @@
+docker:
+  ghcr.io/ton3s/bazzite-deck-lab:
+    use-sigstore-attachments: true
