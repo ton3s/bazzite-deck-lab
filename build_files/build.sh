@@ -19,13 +19,12 @@ dnf5 install -y \
     docker-compose-plugin
 sed -i 's/^enabled=1/enabled=0/' /etc/yum.repos.d/docker-ce.repo
 
-# The RPM creates the docker group at build time, but on an image-based system
-# that entry ends up in /usr/lib/group, which the booted host doesn't resolve.
-# docker.socket (SocketGroup=docker) then fails with "Unknown group". Declare it
-# for systemd-sysusers so it is created in /etc/group at boot, with the same GID.
-DOCKER_GID="$(getent group docker | cut -d: -f3)"
-test -n "${DOCKER_GID}"
-echo "g docker ${DOCKER_GID}" > /usr/lib/sysusers.d/docker.conf
+# The RPM adds the docker group to the image's /etc/group, but a host that is
+# switched or upgraded keeps its own (locally modified) /etc/group, so the group
+# never reaches it and docker.socket (SocketGroup=docker) fails with
+# "Unknown group". Declare it for systemd-sysusers, which creates it in the
+# host's /etc/group at boot if missing (free GID picked to avoid clashes).
+echo "g docker -" > /usr/lib/sysusers.d/docker.conf
 
 systemctl enable docker.service
 
