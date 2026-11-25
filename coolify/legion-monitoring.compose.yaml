@@ -1,0 +1,49 @@
+# Coolify service "legion-monitoring" (project: legion, server: legion).
+#
+# node-exporter (machine CPU / RAM / disks) and cAdvisor (per-container RAM / CPU),
+# scraped by the Prometheus in puglab's "monitoring" service.
+#
+# No ports are published. Both are reachable only through legion's Traefik, and an
+# IP allowlist lets only puglab (192.168.4.47) read them; anyone else gets 403.
+services:
+  node-exporter:
+    image: quay.io/prometheus/node-exporter:v1.13.1
+    restart: unless-stopped
+    command:
+      - --path.rootfs=/host
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    mem_limit: 64m
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=coolify
+      - traefik.http.routers.legion-node-exporter.rule=Host(`node-exporter.192.168.4.34.sslip.io`)
+      - traefik.http.routers.legion-node-exporter.entrypoints=http
+      - traefik.http.routers.legion-node-exporter.middlewares=legion-metrics-puglab-only
+      - traefik.http.services.legion-node-exporter.loadbalancer.server.port=9100
+      - traefik.http.middlewares.legion-metrics-puglab-only.ipallowlist.sourcerange=192.168.4.47/32
+
+  cadvisor:
+    image: ghcr.io/google/cadvisor:v0.61.1
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg
+    command:
+      - --docker_only=true
+      - --housekeeping_interval=30s
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    mem_limit: 256m
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=coolify
+      - traefik.http.routers.legion-cadvisor.rule=Host(`cadvisor.192.168.4.34.sslip.io`)
+      - traefik.http.routers.legion-cadvisor.entrypoints=http
+      - traefik.http.routers.legion-cadvisor.middlewares=legion-metrics-puglab-only
+      - traefik.http.services.legion-cadvisor.loadbalancer.server.port=8080
