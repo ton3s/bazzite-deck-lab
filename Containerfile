@@ -1,3 +1,9 @@
+# Base image (must be declared before the first FROM to be usable in a FROM line).
+# The Justfile resolves ghcr.io/ublue-os/bazzite-deck:stable to an exact digest
+# and passes it in, so every build records which upstream image it used
+# (see the org.ton3s.base-digest label).
+ARG BASE_IMAGE=ghcr.io/ublue-os/bazzite-deck:stable
+
 # Allow build scripts to be referenced without being copied into the final image
 FROM scratch AS ctx
 COPY build_files /
@@ -5,10 +11,6 @@ COPY system_files /system_files
 COPY cosign.pub /cosign.pub
 
 # Base Image
-# The Justfile resolves ghcr.io/ublue-os/bazzite-deck:stable to an exact digest
-# and passes it in as BASE_IMAGE, so every build records exactly which upstream
-# image it was built from (see the org.ton3s.base-digest label).
-ARG BASE_IMAGE=ghcr.io/ublue-os/bazzite-deck:stable
 FROM ${BASE_IMAGE}
 
 ### MODIFICATIONS
