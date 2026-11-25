@@ -122,12 +122,12 @@ build $target_image=image_name $tag=default_tag:
     LABELS+=("--label" "org.opencontainers.image.title={{ image_name }}")
     LABELS+=("--label" "org.opencontainers.image.vendor={{ repo_organization }}")
 
-    # Pin the upstream base to an exact digest and record it, so the
-    # check-upstream workflow can tell when bazzite-deck has changed.
+    # Pin the upstream base to an exact digest. The digest is saved to
+    # .base-digest so CI can record it in the cosign signature (rechunking
+    # drops image labels), which check-upstream.yml compares against.
     BASE_DIGEST=$(skopeo inspect --retry-times 3 --no-tags "docker://${base_image}" | jq -r .Digest)
     BUILD_ARGS+=("--build-arg" "BASE_IMAGE=${base_image%:*}@${BASE_DIGEST}")
-    LABELS+=("--label" "org.ton3s.base-image=${base_image}")
-    LABELS+=("--label" "org.ton3s.base-digest=${BASE_DIGEST}")
+    echo "${BASE_DIGEST}" > .base-digest
 
     # This actually builds the image!
     PODMAN_BUILD_ARGS=("${BUILD_ARGS[@]}" "${LABELS[@]}" --pull=newer --tag "${target_image}:${tag}" --file Containerfile)

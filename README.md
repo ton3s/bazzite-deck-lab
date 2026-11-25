@@ -32,14 +32,17 @@ cosign verify --key cosign.pub ghcr.io/ton3s/bazzite-deck-lab:stable
 
 - On every push to `main` (and on demand from the Actions tab).
 - When upstream `bazzite-deck:stable` changes: [`check-upstream.yml`](.github/workflows/check-upstream.yml)
-  runs every 3 hours, compares the upstream digest with the `org.ton3s.base-digest` label on
-  the published image, and triggers a build if they differ.
+  runs every 3 hours, compares the upstream digest with the one recorded in the published
+  image's signature, and triggers a build if they differ.
 - Weekly, to pick up Docker CE updates.
 
-The build pins `FROM` to the exact upstream digest it resolved, so each image records what it was built from:
+The build pins `FROM` to the exact upstream digest it resolved and records it as a signed
+annotation (`org.ton3s.base-digest`) on the cosign signature; rechunking drops image labels,
+so it can't live there:
 
 ```bash
-skopeo inspect docker://ghcr.io/ton3s/bazzite-deck-lab:stable | jq '.Labels["org.ton3s.base-digest"]'
+cosign verify --key cosign.pub ghcr.io/ton3s/bazzite-deck-lab:stable \
+  | jq -r '.[0].optional["org.ton3s.base-digest"]'
 ```
 
 > GitHub pauses scheduled workflows in repos with no activity for 60 days. If rebuilds stop,

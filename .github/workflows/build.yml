@@ -160,5 +160,10 @@ jobs:
           # https://github.com/containers/container-libs/issues/388
           # https://github.com/coreos/rpm-ostree/issues/5509
           # use old bundle format, so we can use newer cosign 3.X.X instead of 2.X.X
-          cosign sign -y --new-bundle-format=false --use-signing-config=false --key env://COSIGN_PRIVATE_KEY ${IMAGE_REGISTRY}/${IMAGE_NAME}@${DIGEST}
+          # Record which upstream bazzite-deck digest this image was built from.
+          # check-upstream.yml reads it back with `cosign verify`.
+          BASE_DIGEST=$(< .base-digest)
+          cosign sign -y --new-bundle-format=false --use-signing-config=false --key env://COSIGN_PRIVATE_KEY \
+            -a "org.ton3s.base-digest=${BASE_DIGEST}" \
+            ${IMAGE_REGISTRY}/${IMAGE_NAME}@${DIGEST}
 
